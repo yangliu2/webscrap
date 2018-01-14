@@ -19,12 +19,12 @@ def getProtocol(url):
 
 def main():
     
-    websites = pd.read_csv('data/arxiv.csv')
+    websites = pd.read_csv('data/websites.csv')
     websites['l_uri'] = 'http://' + websites['url'].str.lower()
     
     count = 0
     for index, website in websites.iterrows():
-        url = getProtocol(website['l_uri'])
+        url = getProtocol(website['l_uri'])[:-1]
         try:
             
             name = website['name'].replace(' ','_').replace('/','-')
@@ -38,7 +38,7 @@ def main():
             # elif 'yellowpages.com' in url:
             #     continue
 
-            text, media_url = deep_scrape(url, 200)
+            text, media_url, crawl_delay = deep_scrape(url, 200)
 
             if(len(text)) == 0:
                 print ('continue on '+url)
@@ -57,16 +57,17 @@ def main():
                 print link, index
                 index = link[8:].index('/') + 9
                 name = link[index:].replace('/', '-')
-                ignore_404(link, base+name)
+                ignore_404(link, base+name, crawl_delay)
         except requests.exceptions.Timeout as e:
             print e
         except:
             print ('Bad url '+url)
             print(traceback.format_exc())
 
-def ignore_404(link, path):
+def ignore_404(link, path, crawl_delay):
+    time.sleep(crawl_delay)
     con = urllib.urlopen(link)
-    print con.getcode(), link
+    # print con.getcode(), link
     if con.getcode() not in [404, 401, 429, 503]:
         urllib.urlretrieve(link, path)
 
@@ -147,6 +148,12 @@ def read_robot(url):
 
     # if robots.txt crawl-delay
     crawl_delay = robots.agent('*').delay
+
+    if crawl_delay is not None:
+        crawl_delay += 1.0
+
+    if not crawl_delay:
+        crawl_delay = 0.0
     print 'crawl delay', crawl_delay
     return robots, useRobots, crawl_delay
 
@@ -214,7 +221,7 @@ def deep_scrape(base_url, max_depth):
                 if all(ext not in link for ext in STOP_LIST):
                     todo_url.add(link)
     
-    return all_text, media_url
+    return all_text, media_url, crawl_delay
 
 if __name__ == "__main__":
     main()
